@@ -1,0 +1,43 @@
+# Renders the dashboard and publishes it to GitLab Pages.
+#
+# GitLab Pages serves whatever this job leaves in public/, so the build writes
+# docs/ (same as every other host) and the job copies it across.
+#
+# Compute budget: the free tier gives 400 minutes a month. This job takes a
+# minute or two, so a rebuild every 4 hours (~180 runs a month) fits with room
+# to spare. The schedule itself lives in Build > Pipeline schedules, not here.
+
+stages:
+  - deploy
+
+pages:
+  stage: deploy
+  # Alpine keeps the image pull small, which keeps compute minutes down.
+  image: python:3.12-alpine
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_PIPELINE_SOURCE == "web"
+  script:
+    - echo "Rendering from live ESPN data..."
+    - python build.py
+    - |
+      python - <<'PY'
+      import io, sys
+      page = io.open("docs/index.html", encoding="utf-8").read()
+      problems = []
+      if len(page) < 40000:
+          problems.append("page is suspiciously small (%d bytes)" % len(page))
+      if page.count('class="lane"') != 3:
+          problems.append("expected 3 club lanes, found %d" % page.count('class="lane"'))
+      if "Could not load" in page:
+          problems.append("a club failed to load from ESPN")
+      if problems:
+          print("\n".join("  - " + p for p in problems))
+          sys.exit(1)
+      print("looks good: %d bytes, %d lanes" % (len(page), page.count('class="lane"')))
+      PY
+    - rm -rf public && cp -r docs public
+  artifacts:
+    paths:
+      - public
