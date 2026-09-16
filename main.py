@@ -955,8 +955,13 @@ tbody tr.foe td:last-child{border-top-right-radius:9px;border-bottom-right-radiu
   text-transform:uppercase;color:#0b6aa8;background:#e5f4fe;border:1px solid #a9d9f6;
   border-radius:999px;padding:3px 9px;white-space:nowrap;
 }
-body.anthem-locked .eq-lock{display:inline-block}
-body.anthem-locked .eq{margin-left:8px}
+/* Only where there is a pointer to hover with. On a touch screen the whole
+   feature does not apply, so the prompt would be noise - and the header has
+   no room for it at phone width. */
+@media (hover:hover) and (pointer:fine){
+  body.anthem-locked .eq-lock{display:inline-block}
+  body.anthem-locked .eq{margin-left:8px}
+}
 
 .empty{color:var(--dim);text-align:center;padding:28px 12px;font-size:15px;font-weight:500}
 .err{background:#fdecee;border:1px solid #f6c6cb;color:#a4232e;padding:13px 16px;border-radius:12px;font-size:14px;line-height:1.5}
