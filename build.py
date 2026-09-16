@@ -286,6 +286,14 @@ def static_page(published):
     page = page.replace('<audio class="anthem-audio" preload="none"',
                         '<audio class="anthem-audio" preload="metadata"')
 
+    # A GitHub Pages project site cannot have its own robots.txt - that file has
+    # to come from the <user>.github.io repository - so keeping the dashboard out
+    # of search results is down to this tag. It does not make the page private:
+    # anyone with the link can still open it.
+    head = '<meta name="viewport" content="width=device-width,initial-scale=1">'
+    assert head in page, "viewport meta not found - main.py changed?"
+    page = page.replace(head, head + '\n<meta name="robots" content="noindex, nofollow">')
+
     freshen = FRESHEN_JS % {"built": int(time.time() * 1000), "max_age": 10 * 60 * 1000}
     extra = freshen + (BROWSER_ANTHEM if main.ANTHEM_MODE == "browser" else "")
     page = page.replace("</body></html>", extra + "</body></html>")

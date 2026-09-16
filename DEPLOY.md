@@ -97,9 +97,51 @@ workflow is already written at `.github/workflows/deploy.yml`.
 3. **Settings → Pages → Build and deployment → Source → GitHub Actions**
 4. Link: `https://YOUR-NAME.github.io/YOUR-REPO/`
 
-On GitHub's free plan Pages only works from a **public** repo. Scheduled
-workflows pause after 60 days of repository inactivity; re-enable from the
-Actions tab.
+On GitHub's free plan Pages only works from a **public** repo.
+
+### Does the free plan cover a rebuild every 15 minutes?
+
+Yes, with room to spare. The 2,000 Actions minutes a month that people quote is
+the **private** repo allowance; on a public repo with standard runners, Actions
+is free and unlimited. Nothing here comes close to a limit:
+
+| Limit | Ours |
+| --- | --- |
+| Actions minutes, public repo | free and unlimited |
+| Published site: 1 GB | ~5.4 MB |
+| Bandwidth: 100 GB/month, soft | a few MB per visit |
+| Pages builds: 10/hour, soft | 4/hour, and a custom Actions workflow is exempt |
+
+**It runs entirely on GitHub's servers.** Your computer is not involved and does
+not need to be on, which is the whole reason the page is pre-rendered rather
+than fetching ESPN from the browser.
+
+The one thing that can stop it: GitHub **disables a scheduled workflow after 60
+days with no repository activity** on a public repo. It emails you first, the
+Actions tab has a one-click re-enable, and any push resets the clock. The
+schedule also avoids firing on the hour, which GitHub names as its peak load
+window for delayed runs.
+
+### Who can find the site?
+
+It is public. Not *listed*, but not secret either:
+
+- The repository is public, so it is browsable and searchable on GitHub, and
+  **the repo page prints the live link** — finding the repo finds the site.
+- `https://api.github.com/users/YOUR-NAME/repos` lists it to anyone.
+- Pages sites are public by definition. Serving one privately needs GitHub
+  Enterprise Cloud; a **private repo** needs GitHub Pro, and even then the
+  *site* stays public — that only hides the code.
+
+`build.py` adds `<meta name="robots" content="noindex, nofollow">` to keep the
+dashboard out of Google and Bing. A project site cannot carry its own
+`robots.txt` — that has to come from a `YOUR-NAME.github.io` repository — so the
+meta tag is the available control. It stops the page appearing in searches; it
+does not stop anyone who has the URL, and it has no effect on the repo page
+itself being indexed, which is GitHub's robots.txt to decide, not yours.
+
+So: safe to treat as unlisted, not as private. Do not put anything in it you
+would mind a stranger seeing.
 
 ---
 

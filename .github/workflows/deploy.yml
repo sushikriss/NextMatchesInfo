@@ -4,8 +4,16 @@ on:
   push:
     branches: [main]
   schedule:
-    # every 15 minutes (UTC). GitHub may run these a few minutes late.
-    - cron: "*/15 * * * *"
+    # Every 15 minutes. Free and unlimited: Actions only bills private repos.
+    #
+    # Deliberately not */15, which fires on the hour - GitHub names the start of
+    # every hour as its peak load window and delays scheduled runs then. These
+    # offsets sit in the quiet part of the hour instead.
+    #
+    # Note: on a public repo GitHub disables scheduled workflows after 60 days
+    # with no repository activity. It emails first, and any push resets the
+    # clock; the Actions tab also has a Run workflow button.
+    - cron: "7,22,37,52 * * * *"
   workflow_dispatch:
 
 permissions:
