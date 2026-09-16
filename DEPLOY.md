@@ -1,5 +1,8 @@
 # Putting this online
 
+**Live now:** <https://sushikriss.github.io/NextMatchesInfo/> — rebuilt from
+live ESPN data every 15 minutes by `.github/workflows/deploy.yml`.
+
 `build.py` turns the dashboard into one self-contained HTML file in `docs/`.
 Any free static host will serve it. Nothing runs on your computer, and the link
 works for anyone you send it to.
@@ -125,32 +128,26 @@ Emails → Keep my email addresses private**.
 
 ## About the anthems
 
-The recordings are commercial, and a GitHub Pages site is public — anyone with
-the link could download them, which is distributing copyrighted music. So
-`build.py` never ships the audio and `.gitignore` keeps it out of the repo.
+The recordings in `anthems/` are your own, so they ship with the page. `build.py`
+copies them into `docs/anthems/`, re-encoding to 128 kbps where ffmpeg is
+installed — about 2.6 MB each instead of 6.5 MB, which is what lets a hover start
+playing almost at once. Without ffmpeg they are copied unchanged and everything
+still works, just with a larger download.
 
-Instead the hosted page asks **you** for the file, once:
+**Nothing to click.** When a club has **won** its last match, hovering anywhere
+on its Last Match card fades the anthem in; moving the pointer away fades it out
+and pauses it where it stopped, so hovering again resumes from there. A loss or a
+draw gets no meter and no sound. Only one plays at a time — hovering a second
+card fades the first one down.
 
-1. When a club has won, a small **+** appears on the meter in the Last Match
-   header.
-2. Click it and pick your MP3 from your own disk.
-3. The browser stores it locally, and hover-to-play works exactly as it does in
-   the desktop app.
+**The one unavoidable click.** Browsers refuse to start audio before you have
+interacted with a site, so on a freshly opened tab the card reads *click once to
+enable sound*. One click anywhere lifts it for the rest of the visit, and if you
+click while the pointer is already over a card, that anthem starts immediately.
 
-The file never leaves your machine and is never uploaded. It is held in your
-browser's storage for that site, so it survives closing the tab and restarting
-the computer. Anyone else opening the link just sees a meter with a **+** and no
-sound.
-
-You will need to do this once per browser and once per device. Clearing site
-data for the page removes it; click the **+** again to re-add.
-
-The very first play on a hosted page needs one click anywhere on the page —
-browsers refuse to start audio before you have interacted with a site. After
-that, hovering is enough.
-
-If you ever host somewhere genuinely private, `python build.py --with-anthems`
-bundles the audio into `docs/anthems/` instead.
+If you ever need a build with no audio in it — hosting something you may not
+distribute — `python build.py --no-anthems` goes back to asking each viewer for
+their own file, which their browser keeps and never uploads.
 
 ## Running it locally as before
 

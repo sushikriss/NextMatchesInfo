@@ -948,6 +948,16 @@ tbody tr.foe td:last-child{border-top-right-radius:9px;border-bottom-right-radiu
 @keyframes eq{0%,100%{height:4px}50%{height:16px}}
 @media (prefers-reduced-motion:reduce){.card.playing .eq i{animation:none;height:11px}}
 
+/* Browsers refuse to start audio before the page has been clicked once. Only
+   then does hovering do anything, so say so rather than appear broken. */
+.eq-lock{
+  display:none;margin-left:auto;font-size:9.5px;font-weight:800;letter-spacing:.07em;
+  text-transform:uppercase;color:#0b6aa8;background:#e5f4fe;border:1px solid #a9d9f6;
+  border-radius:999px;padding:3px 9px;white-space:nowrap;
+}
+body.anthem-locked .eq-lock{display:inline-block}
+body.anthem-locked .eq{margin-left:8px}
+
 .empty{color:var(--dim);text-align:center;padding:28px 12px;font-size:15px;font-weight:500}
 .err{background:#fdecee;border:1px solid #f6c6cb;color:#a4232e;padding:13px 16px;border-radius:12px;font-size:14px;line-height:1.5}
 footer{text-align:center;color:var(--dim);font-size:13px;margin-top:34px;line-height:1.7;font-weight:500}
@@ -1951,43 +1961,86 @@ ANTHEM_JS = """
     }, 25);
   }
 
-  var cards = [].slice.call(document.querySelectorAll('.card[data-anthem=\"file\"]'));
+  var cards = [].slice.call(document.querySelectorAll('.card[data-anthem="file"]'));
+  if (!cards.length) { return; }
+
+  var locked = false;   // the browser turned a play() down for want of a gesture
+
+  function setLocked(on){
+    locked = on;
+    document.body.classList[on ? 'add' : 'remove']('anthem-locked');
+  }
+
+  function track(card){ return card.querySelector('.anthem-audio'); }
+
+  function stop(card){
+    var audio = track(card);
+    card._want = false;
+    if (!audio) { return; }
+    if (audio.paused) { card.classList.remove('playing'); return; }
+    fade(audio, 0, function(){ audio.pause(); card.classList.remove('playing'); });
+  }
+
+  function start(card){
+    var audio = track(card);
+    if (!audio) { return; }
+    card._want = true;
+
+    cards.forEach(function(other){
+      if (other !== card && other._want) { stop(other); }
+    });
+
+    if (audio.paused) { audio.volume = 0; }   // fade in from silence on a fresh start
+    var started = audio.play();
+    if (!started || !started.then) {          // older browsers return nothing
+      card.classList.add('playing');
+      fade(audio, 1);
+      return;
+    }
+    started.then(function(){
+      if (!card._want) { audio.pause(); return; }   // pointer already left
+      setLocked(false);
+      card.classList.add('playing');
+      fade(audio, 1);
+    }).catch(function(){
+      // Silent, so do not pretend otherwise by animating the meter.
+      clearInterval(audio._fade);
+      card.classList.remove('playing');
+      if (card._want) { setLocked(true); }
+    });
+  }
 
   cards.forEach(function(card){
-    var audio = card.querySelector('.anthem-audio');
+    var audio = track(card);
     if (!audio) { return; }
 
+    var meter = card.querySelector('.eq');
+    if (meter && meter.parentNode) {
+      var tip = document.createElement('span');
+      tip.className = 'eq-lock';
+      tip.textContent = 'click once to enable sound';
+      meter.parentNode.insertBefore(tip, meter);
+    }
+
     audio.addEventListener('error', function(){
-      var eq = card.querySelector('.eq');
-      if (eq && eq.parentNode) { eq.parentNode.removeChild(eq); }
+      if (meter && meter.parentNode) { meter.parentNode.removeChild(meter); }
       card.removeAttribute('data-anthem');
     });
 
-    card.addEventListener('mouseenter', function(){
-      cards.forEach(function(other){
-        if (other === card) { return; }
-        var track = other.querySelector('.anthem-audio');
-        if (track && !track.paused) {
-          fade(track, 0, function(){ track.pause(); other.classList.remove('playing'); });
-        }
-      });
-      if (audio.paused) { audio.volume = 0; }   // fade in from silence on a fresh start
-      var started = audio.play();
-      if (started && started.catch) {
-        started.catch(function(){
-          document.addEventListener('click', function once(){
-            document.removeEventListener('click', once);
-            if (card.matches(':hover')) { audio.play().catch(function(){}); }
-          });
-        });
-      }
-      card.classList.add('playing');
-      fade(audio, 1);
-    });
+    card.addEventListener('mouseenter', function(){ start(card); });
+    card.addEventListener('mouseleave', function(){ stop(card); });
+  });
 
-    card.addEventListener('mouseleave', function(){
-      fade(audio, 0, function(){ audio.pause(); card.classList.remove('playing'); });
-    });
+  // The first gesture anywhere lifts the block. If a card is under the pointer
+  // at that moment, it starts there and then - no second hover needed.
+  ['pointerdown', 'keydown', 'touchend'].forEach(function(evt){
+    document.addEventListener(evt, function(){
+      if (!locked) { return; }
+      setLocked(false);
+      cards.forEach(function(card){
+        try { if (card.matches(':hover')) { start(card); } } catch (e) {}
+      });
+    }, true);
   });
 })();
 """

@@ -50,7 +50,9 @@ Only one anthem plays at a time.
 | Real Madrid | `anthems/real_madrid.mp3` |
 | Manchester United | `anthems/man_united.mp3` |
 
-**You need to supply the audio** — put your own files in the `anthems/` folder.
+**You need to supply the audio** — put your own files in the `anthems/`
+folder. They ship with the published page too, re-encoded to 128 kbps so a
+hover starts playing quickly.
 Filenames are flexible: any audio file whose name contains **madrid** or **hala**
 is used for Real Madrid, and anything containing **united** or **glory** for
 Manchester United. So a file called
@@ -62,9 +64,17 @@ To force one exact file when several could match, name it `real_madrid.mp3` or
 
 Browsers normally block audio that starts without a click, so `main.py` launches
 Chrome or Edge itself with `--autoplay-policy=no-user-gesture-required` in a
-dedicated profile under `%LOCALAPPDATA%ootball-dashboard`. That is what lets
-hover alone start the music. Run with `--default-browser` to use your normal
-browser instead, where the meter still appears but the sound stays blocked.
+dedicated profile under `%LOCALAPPDATA%\football-dashboard`. That is what
+lets hover alone start the music. Run with `--default-browser` to use your
+normal browser instead.
+
+The meter only appears for a club that **won**. A loss or a draw gets no
+meter and no sound, so nothing plays for a result worth forgetting.
+
+On the published page there is no such launch flag, so the first play needs
+one click anywhere on the page - until then the card shows **click once to
+enable sound**. After that, hovering is enough for the rest of the visit, and
+clicking while already hovering a card starts that anthem straight away.
 
 ## Two ways to use it
 

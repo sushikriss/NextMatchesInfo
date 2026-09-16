@@ -5,12 +5,14 @@ ESPN's edge blocks requests that carry a browser fingerprint, so the page
 cannot call the API from the visitor's browser - it is rendered here instead
 and published as plain HTML. A scheduled CI job re-runs this to keep it fresh.
 
-    python build.py            -> docs/index.html
+    python build.py            -> docs/index.html + docs/anthems/
 """
 
 import io
 import os
 import re
+import shutil
+import subprocess
 import sys
 import time
 import urllib.parse
@@ -206,7 +208,62 @@ FRESHEN_JS = """
 """
 
 
-def static_page():
+WEB_BITRATE = "128k"   # 320k masters are three times the size for no audible gain
+
+
+def web_copy(src, target):
+    """Re-encode a recording small enough to start playing the moment a card is
+    hovered. Returns False if ffmpeg is not installed, so the caller copies."""
+    if not shutil.which("ffmpeg"):
+        return False
+    try:
+        subprocess.check_call([
+            "ffmpeg", "-y", "-loglevel", "error", "-i", src,
+            "-vn",                   # drop any embedded cover art
+            "-map_metadata", "-1",   # and the tags
+            "-codec:a", "libmp3lame", "-b:a", WEB_BITRATE,
+            target,
+        ])
+    except (OSError, subprocess.CalledProcessError):
+        return False
+    return os.path.isfile(target) and os.path.getsize(target) > 0
+
+
+def publish_anthems(out_dir):
+    """Put the recordings in docs/anthems/ next to the page.
+
+    Returns {slug: published filename} so the page's <audio src> and the files
+    on disk can never disagree.
+    """
+    dest = os.path.join(out_dir, "anthems")
+    if not os.path.isdir(dest):
+        os.makedirs(dest)
+
+    published = {}
+    for slug in sorted(main.ANTHEM_KEYS):
+        found = main.find_anthem(slug)
+        if not found:
+            print("anthem missing: %s - the card will have no meter" % slug)
+            continue
+
+        # A canonical name keeps the URL clean whatever the master is called.
+        name = slug + ".mp3"
+        target = os.path.join(dest, name)
+        if web_copy(found, target):
+            how = "%.1f MB -> %.1f MB" % (os.path.getsize(found) / 1048576.0,
+                                          os.path.getsize(target) / 1048576.0)
+        else:
+            name = slug + os.path.splitext(found)[1].lower()
+            target = os.path.join(dest, name)
+            shutil.copy2(found, target)
+            how = "%.1f MB, copied as-is" % (os.path.getsize(target) / 1048576.0)
+
+        published[slug] = name
+        print("anthem: %s (%s)" % (name, how))
+    return published
+
+
+def static_page(published):
     page = main.build_page(force=True)
 
     # The refresh link pointed at the local server; here it just reloads.
@@ -217,11 +274,17 @@ def static_page():
     # Anthems are served from a folder next to the page rather than by a route.
     def relink(match):
         slug = match.group(1)
-        found = main.find_anthem(slug)
-        name = os.path.basename(found) if found else (slug + ".mp3")
+        name = published.get(slug)
+        if not name:
+            return match.group(0)
         return 'src="anthems/%s"' % urllib.parse.quote(name)
 
     page = re.sub(r'src="/anthem/([A-Za-z0-9_\-]+)"', relink, page)
+
+    # Over the network, having the headers in hand shortens the gap between
+    # hovering a card and hearing it. Locally the file is already there.
+    page = page.replace('<audio class="anthem-audio" preload="none"',
+                        '<audio class="anthem-audio" preload="metadata"')
 
     freshen = FRESHEN_JS % {"built": int(time.time() * 1000), "max_age": 10 * 60 * 1000}
     extra = freshen + (BROWSER_ANTHEM if main.ANTHEM_MODE == "browser" else "")
@@ -229,16 +292,20 @@ def static_page():
     return page
 
 
-def build(with_anthems=False):
-    if not with_anthems:
-        # The recordings are copyrighted, so nothing is shipped with the page.
-        # Instead the viewer picks their own file once and the browser keeps it.
-        main.ANTHEM_MODE = "browser"
-
-    page = static_page()
+def build(with_anthems=True):
     if not os.path.isdir(OUT_DIR):
         os.makedirs(OUT_DIR)
 
+    if with_anthems:
+        published = publish_anthems(OUT_DIR)
+    else:
+        # Nothing ships with the page; the viewer picks a file once and their
+        # own browser keeps it. For hosting recordings you may not distribute.
+        main.ANTHEM_MODE = "browser"
+        published = {}
+        print("anthems: not published - the page will ask the viewer for a file")
+
+    page = static_page(published)
     target = os.path.join(OUT_DIR, "index.html")
     io.open(target, "w", encoding="utf-8", newline="\n").write(page)
     # stops GitHub Pages running the page through Jekyll
@@ -246,23 +313,8 @@ def build(with_anthems=False):
 
     size = len(page.encode("utf-8")) / 1024.0
     print("wrote %s (%.0f KB)" % (target, size))
-
-    if with_anthems:
-        import shutil
-        dest = os.path.join(OUT_DIR, "anthems")
-        if not os.path.isdir(dest):
-            os.makedirs(dest)
-        copied = []
-        for name in sorted(os.listdir(main.anthems_dir())):
-            stem, ext = os.path.splitext(name)
-            if ext.lower() in main.AUDIO_TYPES:
-                shutil.copy2(os.path.join(main.anthems_dir(), name), os.path.join(dest, name))
-                copied.append(name)
-        print("anthems copied: %s" % (", ".join(copied) if copied else "none found"))
-    else:
-        print("anthems: not published - the page asks you for a file and keeps it in your browser")
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(build("--with-anthems" in sys.argv[1:]))
+    sys.exit(build(with_anthems="--no-anthems" not in sys.argv[1:]))

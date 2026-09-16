@@ -23,7 +23,7 @@ pages:
     - python build.py
     - |
       python - <<'PY'
-      import io, sys
+      import io, os, re, sys
       page = io.open("docs/index.html", encoding="utf-8").read()
       problems = []
       if len(page) < 40000:
@@ -32,10 +32,22 @@ pages:
           problems.append("expected 3 club lanes, found %d" % page.count('class="lane"'))
       if "Could not load" in page:
           problems.append("a club failed to load from ESPN")
+
+      # This image has no ffmpeg, so the masters are copied across as they are.
+      # A club that lost has no anthem at all, so only check what is linked.
+      if 'data-anthem="browser"' in page:
+          problems.append("page is asking viewers for their own audio")
+      linked = re.findall(r'src="anthems/([^"]+)"', page)
+      for name in linked:
+          path = os.path.join("docs", "anthems", name)
+          if not os.path.isfile(path) or os.path.getsize(path) == 0:
+              problems.append("anthem linked but not published: %s" % name)
+
       if problems:
           print("\n".join("  - " + p for p in problems))
           sys.exit(1)
-      print("looks good: %d bytes, %d lanes" % (len(page), page.count('class="lane"')))
+      print("looks good: %d bytes, %d lanes, %d anthem(s) playable"
+            % (len(page), page.count('class="lane"'), len(linked)))
       PY
     - rm -rf public && cp -r docs public
   artifacts:
