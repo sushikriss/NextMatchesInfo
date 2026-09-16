@@ -154,10 +154,18 @@ BROWSER_ANTHEM = """
 FRESHEN_JS = """
 <style>
 #age.stale{color:#c2410c;font-weight:700}
+#frozen{
+  margin:0 0 18px;padding:13px 17px;border-radius:12px;
+  background:#fdecee;border:1px solid #f6c6cb;color:#a4232e;
+  font-size:13.5px;line-height:1.6;font-weight:500;
+}
+#frozen b{font-weight:800}
+#frozen a{color:#a4232e;font-weight:700}
 </style>
 <script>
 (function(){
   var BUILT = %(built)d, MAX_AGE = %(max_age)d, TRIED = 'dashReloadTried';
+  var FROZEN = %(frozen)d, ACTIONS = '%(actions)s';
   var stamp = document.querySelector('.stamp');
 
   function ago(){
@@ -178,8 +186,34 @@ FRESHEN_JS = """
     tag.textContent = ' · ' + ago();
     tag.className = (Date.now() - BUILT > 3 * 3600 * 1000) ? 'stale' : '';
   }
+  // GitHub disables a scheduled workflow after 60 days without repository
+  // activity, and its docs do not promise a warning - users report the runs
+  // simply stop. So the page says so itself rather than quietly serving an old
+  // snapshot that still looks plausible.
+  function paintFrozen(){
+    var box = document.getElementById('frozen');
+    if (Date.now() - BUILT <= FROZEN) {
+      if (box) { box.parentNode.removeChild(box); }
+      return;
+    }
+    if (box) { return; }
+    var lanes = document.querySelector('.lanes');
+    if (!lanes) { return; }
+    box = document.createElement('div');
+    box.id = 'frozen';
+    box.innerHTML = '<b>This page has stopped rebuilding.</b> The data below was ' +
+      'built ' + ago() + ' and should refresh every 15 minutes, so the scheduled ' +
+      'job is not running. GitHub switches one off after 60 days without a push ' +
+      'to the repository' +
+      (ACTIONS ? ': open <a href="' + ACTIONS + '" rel="noreferrer">the Actions tab</a> ' +
+                 'and press <b>Enable workflow</b>.'
+               : '; re-enable it from the repository\\'s Actions tab.');
+    lanes.parentNode.insertBefore(box, lanes);
+  }
+
   paintAge();
-  setInterval(paintAge, 30000);
+  paintFrozen();
+  setInterval(function(){ paintAge(); paintFrozen(); }, 30000);
 
   function stale(){ return Date.now() - BUILT > MAX_AGE; }
   try { if (!stale()) { sessionStorage.removeItem(TRIED); } } catch (e) {}
@@ -209,6 +243,23 @@ FRESHEN_JS = """
 
 
 WEB_BITRATE = "128k"   # 320k masters are three times the size for no audible gain
+
+
+def actions_url():
+    """The repository's Actions tab, read off the git remote so the frozen-page
+    notice can link straight to the Enable workflow button. Empty if this is
+    not a GitHub checkout."""
+    try:
+        remote = subprocess.check_output(
+            ["git", "config", "--get", "remote.origin.url"],
+            stderr=subprocess.DEVNULL).decode("utf-8", "replace").strip()
+    except (OSError, subprocess.CalledProcessError):
+        return ""
+
+    match = re.match(r"(?:https://|git@)github\.com[:/](.+?)(?:\.git)?$", remote)
+    if not match:
+        return ""
+    return "https://github.com/%s/actions" % match.group(1)
 
 
 def web_copy(src, target):
@@ -294,7 +345,14 @@ def static_page(published):
     assert head in page, "viewport meta not found - main.py changed?"
     page = page.replace(head, head + '\n<meta name="robots" content="noindex, nofollow">')
 
-    freshen = FRESHEN_JS % {"built": int(time.time() * 1000), "max_age": 10 * 60 * 1000}
+    freshen = FRESHEN_JS % {
+        "built": int(time.time() * 1000),
+        "max_age": 10 * 60 * 1000,
+        # Rebuilds run every 15 minutes, so eight hours without one is a
+        # failure, not a slow scheduler - GitHub can delay a run, never by that.
+        "frozen": 8 * 3600 * 1000,
+        "actions": actions_url(),
+    }
     extra = freshen + (BROWSER_ANTHEM if main.ANTHEM_MODE == "browser" else "")
     page = page.replace("</body></html>", extra + "</body></html>")
     return page
