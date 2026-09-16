@@ -23,13 +23,17 @@ OUT_DIR = "docs"
 BROWSER_ANTHEM = """
 <style>
 .eq[data-slot]{cursor:pointer;position:relative}
-.eq[data-slot]:not(.ready){opacity:.28}
-.eq[data-slot]:not(.ready):hover,.eq[data-slot]:not(.ready):focus{opacity:.65;outline:none}
-.eq[data-slot]:not(.ready)::after{
-  content:"+";position:absolute;right:-10px;top:-7px;
-  font-size:12px;font-weight:800;color:var(--blue);line-height:1;
-}
 .eq[data-slot].ready{opacity:.45}
+/* Until a file is chosen the meter is a plainly labelled button instead of
+   four mystery bars. */
+.eq.need{
+  width:auto;height:auto;gap:7px;opacity:1;align-items:center;
+  background:#e5f4fe;border:1px solid #a9d9f6;border-radius:999px;
+  padding:4px 11px;font-size:10.5px;font-weight:800;letter-spacing:.08em;
+  text-transform:uppercase;color:#0b6aa8;white-space:nowrap;transition:.15s;
+}
+.eq.need:hover,.eq.need:focus{background:#d3ecfd;border-color:#7cc4ee;outline:none}
+.eq.need b{font-size:13px;line-height:1}
 </style>
 <script>
 (function(){
@@ -72,7 +76,9 @@ BROWSER_ANTHEM = """
     var audio = new Audio(URL.createObjectURL(blob));
     audio.preload = 'auto';
     card._audio = audio;
+    meter.classList.remove('need');
     meter.classList.add('ready');
+    meter.innerHTML = '<i></i><i></i><i></i><i></i>';
     meter.title = 'Hover the card to play the ' + meter.getAttribute('data-label') +
                   '. Click to choose a different file.';
 
@@ -125,8 +131,10 @@ BROWSER_ANTHEM = """
     var meter = card.querySelector('.eq[data-slot]');
     if (!meter) { return; }
     var slot = meter.getAttribute('data-slot');
-    meter.title = 'Click to choose your ' + meter.getAttribute('data-label') +
-                  ' file. It stays on this device.';
+    var label = meter.getAttribute('data-label');
+    meter.classList.add('need');
+    meter.innerHTML = '<b>&#9834;</b><span>Add ' + label + '</span>';
+    meter.title = 'Pick your ' + label + ' file. It stays on this device and is never uploaded.';
 
     meter.addEventListener('click', function(e){ e.stopPropagation(); choose(card, meter, slot); });
     meter.addEventListener('keydown', function(e){
