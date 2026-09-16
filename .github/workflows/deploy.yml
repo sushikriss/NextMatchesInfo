@@ -27,8 +27,13 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install ffmpeg
+        # Not on the runner image by default. Without it build.py publishes the
+        # 320 kbps masters, which is three times the download for no gain.
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ffmpeg
+
       - name: Render the dashboard
-        # No dependencies to install - main.py is standard library only.
+        # No Python dependencies to install - main.py is standard library only.
         run: python build.py
 
       - name: Check it actually rendered
@@ -59,6 +64,9 @@ jobs:
               sys.exit(1)
           print("looks good: %d bytes, %d lanes, %d anthem(s) playable"
                 % (len(page), page.count('class="lane"'), len(linked)))
+          for name in linked:
+              mb = os.path.getsize(os.path.join("docs", "anthems", name)) / 1048576.0
+              print("  %s  %.1f MB%s" % (name, mb, "  (not re-encoded?)" if mb > 4 else ""))
           PY
 
       - uses: actions/configure-pages@v5
