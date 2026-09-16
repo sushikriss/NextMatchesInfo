@@ -20,6 +20,127 @@ import main
 OUT_DIR = "docs"
 
 # A bookmarked tab should not sit on yesterday's fixtures.
+BROWSER_ANTHEM = """
+<style>
+.eq[data-slot]{cursor:pointer;position:relative}
+.eq[data-slot]:not(.ready){opacity:.28}
+.eq[data-slot]:not(.ready):hover,.eq[data-slot]:not(.ready):focus{opacity:.65;outline:none}
+.eq[data-slot]:not(.ready)::after{
+  content:"+";position:absolute;right:-10px;top:-7px;
+  font-size:12px;font-weight:800;color:var(--blue);line-height:1;
+}
+.eq[data-slot].ready{opacity:.45}
+</style>
+<script>
+(function(){
+  var DB = 'dashboard-anthems', STORE = 'files', FADE = 430;
+
+  function open(){
+    return new Promise(function(res, rej){
+      var req = indexedDB.open(DB, 1);
+      req.onupgradeneeded = function(){ req.result.createObjectStore(STORE); };
+      req.onsuccess = function(){ res(req.result); };
+      req.onerror = function(){ rej(req.error); };
+    });
+  }
+  function run(mode, fn){
+    return open().then(function(db){
+      return new Promise(function(res, rej){
+        var t = db.transaction(STORE, mode), request = fn(t.objectStore(STORE));
+        t.oncomplete = function(){ res(request ? request.result : null); };
+        t.onerror = function(){ rej(t.error); };
+      });
+    });
+  }
+  var load = function(k){ return run('readonly', function(s){ return s.get(k); }); };
+  var save = function(k, v){ return run('readwrite', function(s){ return s.put(v, k); }); };
+
+  function fade(audio, target, done){
+    clearInterval(audio._fade);
+    var from = audio.volume, started = performance.now();
+    audio._fade = setInterval(function(){
+      var k = Math.min(1, (performance.now() - started) / FADE);
+      audio.volume = Math.max(0, Math.min(1, from + (target - from) * k));
+      if (k >= 1) { clearInterval(audio._fade); if (done) { done(); } }
+    }, 25);
+  }
+
+  var cards = [].slice.call(document.querySelectorAll('.card[data-anthem="browser"]'));
+
+  function attach(card, meter, blob){
+    if (card._audio) { URL.revokeObjectURL(card._audio.src); card._audio.pause(); }
+    var audio = new Audio(URL.createObjectURL(blob));
+    audio.preload = 'auto';
+    card._audio = audio;
+    meter.classList.add('ready');
+    meter.title = 'Hover the card to play the ' + meter.getAttribute('data-label') +
+                  '. Click to choose a different file.';
+
+    if (card._wired) { return; }
+    card._wired = true;
+
+    card.addEventListener('mouseenter', function(){
+      var mine = card._audio;
+      if (!mine) { return; }
+      cards.forEach(function(other){
+        if (other === card || !other._audio || other._audio.paused) { return; }
+        var t = other._audio;
+        fade(t, 0, function(){ t.pause(); other.classList.remove('playing'); });
+      });
+      if (mine.paused) { mine.volume = 0; }
+      var started = mine.play();
+      if (started && started.catch) {
+        started.catch(function(){
+          document.addEventListener('click', function once(){
+            document.removeEventListener('click', once);
+            if (card.matches(':hover') && card._audio) { card._audio.play().catch(function(){}); }
+          });
+        });
+      }
+      card.classList.add('playing');
+      fade(mine, 1);
+    });
+
+    card.addEventListener('mouseleave', function(){
+      var mine = card._audio;
+      if (!mine) { return; }
+      fade(mine, 0, function(){ mine.pause(); card.classList.remove('playing'); });
+    });
+  }
+
+  function choose(card, meter, slot){
+    var input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'audio/*';
+    input.addEventListener('change', function(){
+      var file = input.files && input.files[0];
+      if (!file) { return; }
+      save(slot, file).then(function(){ attach(card, meter, file); })
+        .catch(function(){ attach(card, meter, file); });   // play it even if storing fails
+    });
+    input.click();
+  }
+
+  cards.forEach(function(card){
+    var meter = card.querySelector('.eq[data-slot]');
+    if (!meter) { return; }
+    var slot = meter.getAttribute('data-slot');
+    meter.title = 'Click to choose your ' + meter.getAttribute('data-label') +
+                  ' file. It stays on this device.';
+
+    meter.addEventListener('click', function(e){ e.stopPropagation(); choose(card, meter, slot); });
+    meter.addEventListener('keydown', function(e){
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(card, meter, slot); }
+    });
+
+    load(slot).then(function(blob){ if (blob) { attach(card, meter, blob); } })
+      .catch(function(){ /* private mode, or storage blocked - the + still works */ });
+  });
+})();
+</script>
+"""
+
+
 FRESHEN_JS = """
 <style>
 #age.stale{color:#c2410c;font-weight:700}
@@ -95,15 +216,16 @@ def static_page():
     page = re.sub(r'src="/anthem/([A-Za-z0-9_\-]+)"', relink, page)
 
     freshen = FRESHEN_JS % {"built": int(time.time() * 1000), "max_age": 10 * 60 * 1000}
-    page = page.replace("</body></html>", freshen + "</body></html>")
+    extra = freshen + (BROWSER_ANTHEM if main.ANTHEM_MODE == "browser" else "")
+    page = page.replace("</body></html>", extra + "</body></html>")
     return page
 
 
 def build(with_anthems=False):
     if not with_anthems:
-        # The anthems are copyrighted recordings. They stay on your machine
-        # unless you explicitly ask for them, and the meter hides itself.
-        main.find_anthem = lambda slug: None
+        # The recordings are copyrighted, so nothing is shipped with the page.
+        # Instead the viewer picks their own file once and the browser keeps it.
+        main.ANTHEM_MODE = "browser"
 
     page = static_page()
     if not os.path.isdir(OUT_DIR):
@@ -130,7 +252,7 @@ def build(with_anthems=False):
                 copied.append(name)
         print("anthems copied: %s" % (", ".join(copied) if copied else "none found"))
     else:
-        print("anthems: not published (run with --with-anthems to include them)")
+        print("anthems: not published - the page asks you for a file and keeps it in your browser")
     return 0
 
 

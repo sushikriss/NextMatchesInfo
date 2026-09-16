@@ -92,6 +92,9 @@ ANTHEM_KEYS = {t["anthem"]: t.get("anthem_keys", (t["anthem"],))
 
 CACHE_SECONDS = 60
 
+# "file" = play anthems/<name>.mp3   "browser" = the viewer supplies their own
+ANTHEM_MODE = "file"
+
 
 # --------------------------------------------------------------------------
 # Bulgarian time (Europe/Sofia)
@@ -1464,17 +1467,27 @@ def render_last(cfg, last):
     title = "Last match"
 
     # A club that won gets its anthem on this card, played by hovering it.
-    meter = audio = ""
+    meter = audio = flag = ""
     won = bool(last) and last.get("result") == "W"
-    if won and cfg.get("anthem") and find_anthem(cfg["anthem"]):
-        meter = ('<span class="eq" title="Hover this card to play the %s">'
-                 '<i></i><i></i><i></i><i></i></span>') % esc(cfg.get("anthem_label") or "anthem")
-        audio = ('<audio class="anthem-audio" preload="none" src="/anthem/%s"></audio>'
-                 % esc(cfg["anthem"]))
+    label = esc(cfg.get("anthem_label") or "anthem")
+    if won and cfg.get("anthem"):
+        if ANTHEM_MODE == "browser":
+            # No audio ships with the page; the viewer picks a file once and it
+            # is kept in their own browser.
+            meter = ('<span class="eq" tabindex="0" role="button" data-slot="%s" '
+                     'data-label="%s"><i></i><i></i><i></i><i></i></span>'
+                     % (esc(cfg["anthem"]), label))
+            flag = ' data-anthem="browser"'
+        elif find_anthem(cfg["anthem"]):
+            meter = ('<span class="eq" title="Hover this card to play the %s">'
+                     '<i></i><i></i><i></i><i></i></span>') % label
+            audio = ('<audio class="anthem-audio" preload="none" src="/anthem/%s"></audio>'
+                     % esc(cfg["anthem"]))
+            flag = ' data-anthem="file"'
 
     shell = ('<section class="card last-card%s"%s><div class="card-h">%s%s</div>'
              '<div class="card-b">%%s</div>%s</section>') % (
-        " evil" if evil else "", ' data-anthem="1"' if audio else "", title, meter, audio)
+        " evil" if evil else "", flag, title, meter, audio)
 
     if not last:
         return shell % '<div class="empty">No completed match found.</div>'
@@ -1938,7 +1951,7 @@ ANTHEM_JS = """
     }, 25);
   }
 
-  var cards = [].slice.call(document.querySelectorAll('.card[data-anthem]'));
+  var cards = [].slice.call(document.querySelectorAll('.card[data-anthem=\"file\"]'));
 
   cards.forEach(function(card){
     var audio = card.querySelector('.anthem-audio');

@@ -125,20 +125,32 @@ Emails → Keep my email addresses private**.
 
 ## About the anthems
 
-`build.py` does **not** publish your anthem files. They are commercial
-recordings, and putting them on a public URL would be distributing them — so
-`.gitignore` keeps them out of the repository and the meter simply does not
-appear on the hosted page.
+The recordings are commercial, and a GitHub Pages site is public — anyone with
+the link could download them, which is distributing copyrighted music. So
+`build.py` never ships the audio and `.gitignore` keeps it out of the repo.
 
-If you host somewhere private and want the sound:
+Instead the hosted page asks **you** for the file, once:
 
-```
-python build.py --with-anthems
-```
+1. When a club has won, a small **+** appears on the meter in the Last Match
+   header.
+2. Click it and pick your MP3 from your own disk.
+3. The browser stores it locally, and hover-to-play works exactly as it does in
+   the desktop app.
 
-That copies the audio into `docs/anthems/` and the hover-to-play meter comes
-back. On a hosted page the browser wants one click anywhere on the page before
-it will allow sound; after that, hovering works as it does locally.
+The file never leaves your machine and is never uploaded. It is held in your
+browser's storage for that site, so it survives closing the tab and restarting
+the computer. Anyone else opening the link just sees a meter with a **+** and no
+sound.
+
+You will need to do this once per browser and once per device. Clearing site
+data for the page removes it; click the **+** again to re-add.
+
+The very first play on a hosted page needs one click anywhere on the page —
+browsers refuse to start audio before you have interacted with a site. After
+that, hovering is enough.
+
+If you ever host somewhere genuinely private, `python build.py --with-anthems`
+bundles the audio into `docs/anthems/` instead.
 
 ## Running it locally as before
 
