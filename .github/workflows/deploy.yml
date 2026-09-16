@@ -1,0 +1,65 @@
+name: Build and publish dashboard
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    # every 15 minutes (UTC). GitHub may run these a few minutes late.
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Render the dashboard
+        # No dependencies to install - main.py is standard library only.
+        run: python build.py
+
+      - name: Check it actually rendered
+        run: |
+          python - <<'PY'
+          import io, sys
+          page = io.open("docs/index.html", encoding="utf-8").read()
+          problems = []
+          if len(page) < 40000:
+              problems.append("page is suspiciously small (%d bytes)" % len(page))
+          if page.count('class="lane"') != 3:
+              problems.append("expected 3 club lanes, found %d" % page.count('class="lane"'))
+          if "Could not load" in page:
+              problems.append("a club failed to load from ESPN")
+          if problems:
+              print("\n".join("  - " + p for p in problems))
+              sys.exit(1)
+          print("looks good: %d bytes, %d lanes" % (len(page), page.count('class="lane"')))
+          PY
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+
+# Anthem recordings stay local - they are copyrighted and must not be published.
+anthems/*.mp3
+anthems/*.m4a
+anthems/*.ogg
+anthems/*.wav
+anthems/*.opus
+docs/anthems/
