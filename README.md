@@ -70,8 +70,10 @@ browser instead, where the meter still appears but the sound stays blocked.
 
 **Online**, as a bookmarkable link that updates itself — see **[DEPLOY.md](DEPLOY.md)**.
 `python build.py` renders the whole dashboard to `docs/index.html`, which any
-free static host will serve. Config is included for GitLab Pages
-(`.gitlab-ci.yml`) and GitHub Pages (`.github/workflows/deploy.yml`).
+free static host will serve. The quickest route needs no account at all:
+**`Publish to the web.bat`** renders the page and opens a drag-and-drop host.
+CI config is also included for GitLab Pages (`.gitlab-ci.yml`) and GitHub Pages
+(`.github/workflows/deploy.yml`) if you want it to refresh itself.
 
 **Locally**, as the app below.
 

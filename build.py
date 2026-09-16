@@ -21,16 +21,56 @@ OUT_DIR = "docs"
 
 # A bookmarked tab should not sit on yesterday's fixtures.
 FRESHEN_JS = """
+<style>
+#age.stale{color:#c2410c;font-weight:700}
+</style>
 <script>
 (function(){
-  var BUILT = %(built)d, MAX_AGE = %(max_age)d;
+  var BUILT = %(built)d, MAX_AGE = %(max_age)d, TRIED = 'dashReloadTried';
+  var stamp = document.querySelector('.stamp');
+
+  function ago(){
+    var secs = Math.round((Date.now() - BUILT) / 1000);
+    if (secs < 90) { return 'just now'; }
+    var mins = Math.round(secs / 60);
+    if (mins < 60) { return mins + ' min ago'; }
+    var hours = Math.round(mins / 60);
+    if (hours < 36) { return hours + (hours === 1 ? ' hour ago' : ' hours ago'); }
+    var days = Math.round(hours / 24);
+    return days + (days === 1 ? ' day ago' : ' days ago');
+  }
+
+  function paintAge(){
+    if (!stamp) { return; }
+    var tag = document.getElementById('age');
+    if (!tag) { tag = document.createElement('span'); tag.id = 'age'; stamp.appendChild(tag); }
+    tag.textContent = ' · ' + ago();
+    tag.className = (Date.now() - BUILT > 3 * 3600 * 1000) ? 'stale' : '';
+  }
+  paintAge();
+  setInterval(paintAge, 30000);
+
   function stale(){ return Date.now() - BUILT > MAX_AGE; }
+  try { if (!stale()) { sessionStorage.removeItem(TRIED); } } catch (e) {}
+
+  // Coming back to a stale tab, try once for a newer build. On a host that
+  // serves a frozen snapshot the reload changes nothing, so never loop.
   document.addEventListener('visibilitychange', function(){
-    if (!document.hidden && stale()) { location.reload(); }
+    if (document.hidden || !stale()) { return; }
+    try {
+      if (sessionStorage.getItem(TRIED)) { return; }
+      sessionStorage.setItem(TRIED, '1');
+    } catch (e) {}
+    location.reload();
   });
+
   var btn = document.getElementById('refresh');
   if (btn) {
-    btn.addEventListener('click', function(e){ e.preventDefault(); location.reload(); });
+    btn.addEventListener('click', function(e){
+      e.preventDefault();
+      try { sessionStorage.removeItem(TRIED); } catch (e2) {}
+      location.reload();
+    });
   }
 })();
 </script>

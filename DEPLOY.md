@@ -1,131 +1,114 @@
 # Putting this online
 
-The dashboard becomes a plain HTML page that any free static host will serve.
-Nothing runs on your computer, and the link works for anyone you send it to.
+`build.py` turns the dashboard into one self-contained HTML file in `docs/`.
+Any free static host will serve it. Nothing runs on your computer, and the link
+works for anyone you send it to.
 
-## Why it is pre-rendered rather than live-in-the-browser
+## Why it is pre-rendered
 
 ESPN's edge sits behind a bot filter. A request carrying a browser fingerprint
-is refused with **403 Access Denied**, while the same request from a script is
-answered normally — and a web page cannot pretend to be a script, because
-browsers will not let JavaScript change its own `User-Agent`.
+gets **403 Access Denied**, while the same request from a script is answered
+normally — and a web page cannot pretend to be a script, because browsers will
+not let JavaScript change its own `User-Agent`.
 
-So the page cannot call ESPN from your browser. Instead `build.py` renders the
-whole dashboard to static HTML, and a scheduled job re-renders it. The page you
-open is already finished, so it appears instantly.
+So the page cannot call ESPN from your browser. It is rendered here instead and
+published as finished HTML, which is why it appears instantly with no spinner.
+Countdowns, the lineup viewer and the fact tooltips are client-side, so they
+stay live however old the build is.
 
-Countdowns, the lineup viewer and the fact tooltips are all client-side, so they
-stay live no matter how old the build is.
+## Pick a host
+
+| | Account | Card | Refreshes itself | Effort |
+| --- | --- | --- | --- | --- |
+| **A. Drag and drop** | no | no | no — you re-drop | seconds |
+| **B. GitLab Pages** | yes | **yes** | every 4 hours | ~10 min |
+| **C. GitHub Pages** | yes | no | every 15 min | ~5 min |
+
+The page always shows how old it is next to the timestamp — *just now*,
+*2 hours ago* — and turns amber past three hours, so a stale snapshot is never
+mistaken for live data.
 
 ---
 
-## Option A — GitLab Pages
+## Option A — Drag and drop, no account
 
-Two things to know before you start.
+Double-click **`Publish to the web.bat`**. It re-renders the page, then opens
+your folder and [app.netlify.com/drop](https://app.netlify.com/drop). Drag the
+**`docs`** folder onto the page and you get a public link in a few seconds.
 
-**1. GitLab wants a card on file before it will run CI.** Shared runners require
-credit or debit card verification — a £0/€0 authorisation, no charge. Without
-CI there is no Pages deploy, so this is unavoidable on GitLab. If you would
-rather not, use Option B or C.
+No sign-up, no card, no repository, nothing tied to any account of yours.
 
-**2. The free tier gives 400 compute minutes a month.** Each rebuild takes a
-minute or two, so the schedule below runs every 4 hours (about 180 runs a
-month). Going to every 15 minutes would need roughly 2,900 runs and is far
-beyond the free budget.
+To update it, run the same file again and drag `docs` across again. If you want
+the link to stay the same and be yours permanently, Netlify will offer to let
+you claim the site with a free account.
+
+Other hosts that work the same way, if you prefer one of them: **static.app**,
+**tiiny.host**, **yapp.page**, **neocities.org**. All take a folder containing
+`index.html`, which is exactly what `docs` is.
+
+## Option B — GitLab Pages
+
+Two things to know first.
+
+**GitLab wants a card on file before it will run CI.** Shared runners require
+credit or debit verification — a zero-value authorisation, no charge. GitLab
+Pages only deploys through a CI job, so there is no way around it.
+
+**The free tier gives 400 compute minutes a month.** Each rebuild takes a minute
+or two, so the schedule below runs every 4 hours (~180 runs a month). Every 15
+minutes would need ~2,900 runs, far past the budget.
 
 One thing GitLab does better than GitHub: **Pages works from a private project
-on the free tier.** Your code can stay private while the site is public — on
-GitHub that needs a paid plan.
+on the free tier**, so your code can stay private while the site is public.
 
-### Steps
-
-1. Sign in to the GitLab account you want this on. Create a **new blank
-   project** — no README, no template. Private is fine.
-
-2. Push this folder:
-
+1. Create a **new blank project** — no README, no template. Private is fine.
+2. Push:
    ```
    git remote add origin https://gitlab.com/YOUR-NAME/YOUR-PROJECT.git
    git push -u origin main
    ```
+3. Complete card verification if GitLab prompts.
+4. **Build → Pipeline schedules → New schedule**, interval `0 */4 * * *`,
+   target branch `main`.
+5. Your link is under **Deploy → Pages**, usually
+   `https://YOUR-NAME.gitlab.io/YOUR-PROJECT/`.
 
-3. If prompted, complete card verification under
-   **Settings → CI/CD → Runners**, or at the banner GitLab shows you.
+Tuning the schedule against the 400-minute budget:
 
-4. The first pipeline runs on push. Watch it under **Build → Pipelines**.
-
-5. Set up the refresh: **Build → Pipeline schedules → New schedule**
-
-   | Field | Value |
-   | --- | --- |
-   | Description | `Rebuild dashboard` |
-   | Interval pattern | Custom → `0 */4 * * *` |
-   | Cron timezone | anything; the page always shows Bulgarian time |
-   | Target branch | `main` |
-
-6. Find your link under **Deploy → Pages**. It looks like:
-
-   ```
-   https://YOUR-NAME.gitlab.io/YOUR-PROJECT/
-   ```
-
-   New projects often have **Use unique domain** switched on, which gives a
-   longer address instead. Either works; the Pages settings page shows the real
-   one.
-
-### Tuning the schedule
-
-Roughly 400 minutes ÷ 2 minutes per run ≈ 200 runs a month.
-
-| Cron | Rebuilds per day | Runs per month | Fits 400 min? |
+| Cron | Rebuilds/day | Runs/month | Fits? |
 | --- | --- | --- | --- |
 | `0 */6 * * *` | 4 | ~120 | comfortably |
-| `0 */4 * * *` | 6 | ~180 | yes — the default here |
-| `0 */2 * * *` | 12 | ~360 | tight, likely over |
+| `0 */4 * * *` | 6 | ~180 | yes — the default |
+| `0 */2 * * *` | 12 | ~360 | tight |
 | `*/15 * * * *` | 96 | ~2,900 | no |
 
-Last match, next fixture and league tables all move slowly, so a few hours of
-lag costs you nothing in practice.
+## Option C — GitHub Pages
 
----
+The best economics of the three: on a **public** repo, Actions are free and
+unlimited, so it rebuilds every 15 minutes, and there is no card check. The
+workflow is already written at `.github/workflows/deploy.yml`.
 
-## Option B — GitHub Pages
-
-Better economics than GitLab: on a **public** repo, Actions are free and
-unlimited, so it rebuilds every 15 minutes, and there is no card check.
-
-The workflow is already written at `.github/workflows/deploy.yml`.
-
-1. Create an empty **public** repo on the account you want — not a work one.
+1. Create an empty **public** repo — not on a work account.
 2. `git remote add origin https://github.com/YOUR-NAME/YOUR-REPO.git`
    then `git push -u origin main`
 3. **Settings → Pages → Build and deployment → Source → GitHub Actions**
 4. Link: `https://YOUR-NAME.github.io/YOUR-REPO/`
 
-Note that on GitHub's free plan Pages only works from a **public** repo, and the
-published site is public regardless. Scheduled workflows pause after 60 days of
-repository inactivity; re-enable them from the Actions tab.
-
-## Option C — Netlify Drop (no account, no card)
-
-Go to **[app.netlify.com/drop](https://app.netlify.com/drop)** and drag the
-`docs` folder onto the page. A public URL appears in seconds, with no sign-up,
-no repository and no card.
-
-The catch: it publishes the snapshot as it stands and never refreshes itself.
-Re-run `python build.py` and drag the folder again to update. Good for sending
-someone a link today; A or B are better for a bookmark.
+On GitHub's free plan Pages only works from a **public** repo. Scheduled
+workflows pause after 60 days of repository inactivity; re-enable from the
+Actions tab.
 
 ---
 
-## Updating it yourself
+## Updating it
 
 ```
-python build.py      # re-render docs/index.html from live ESPN data
-git add -A && git commit -m "refresh" && git push
+python build.py
 ```
 
-The scheduled job does exactly this, so you rarely need to.
+That re-renders `docs/index.html` from live ESPN data. On Option A, drag the
+folder across again (or just run `Publish to the web.bat`). On B and C the
+scheduled job does it for you, and a `git push` triggers a rebuild too.
 
 ## Commit identity
 
@@ -147,7 +130,7 @@ recordings, and putting them on a public URL would be distributing them — so
 `.gitignore` keeps them out of the repository and the meter simply does not
 appear on the hosted page.
 
-If you host somewhere private and want the sound, build with:
+If you host somewhere private and want the sound:
 
 ```
 python build.py --with-anthems
