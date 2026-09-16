@@ -133,14 +133,29 @@ Two things cover this. First, past eight hours without a rebuild the page says
 outright that it has stopped and links to the Enable workflow button, so a
 frozen snapshot can never pass for live data.
 
-Second, **`reset-matches.bat`** — run it every month or two. It pushes one empty
-commit, which resets the 60-day clock, and since the workflow also runs on every
-push it refreshes the page immediately. An empty commit leaves no junk in the
-history. A copy lives here in the project; the one to double-click is on the
-Desktop. If you move the project folder, edit the `REPO` line at its top.
+Second, **`reset-matches.bat`** — run it every month or two. The logic lives in
+`keepalive.py`; the `.bat` is the double-clickable wrapper, one copy here and one
+on the Desktop. If you move the project folder, edit the `REPO` line at its top.
 
-Note it only *prevents* the problem. Once GitHub has switched the workflow off,
-no push can restart it — that needs the button on the Actions tab.
+What it does depends on what it finds:
+
+| Workflow state | What happens |
+| --- | --- |
+| `active` — the normal case | Pushes one empty commit. Resets the 60-day clock, and rebuilds the page at once because the workflow runs on push too. No credential is read. |
+| `disabled_inactivity` — you left it too long | Turns the workflow back on through the API, *then* pushes. Enabling alone would leave the clock still expired. |
+| Unreadable (API rate limit) | Pushes anyway and says plainly that it could not check, rather than implying all is well. |
+| Enable refused | Stops without a pointless commit and prints the Actions link. |
+
+Reading the state needs no credentials. Turning a workflow back on does, and
+only then does it read the credential Git already uses for pushing — the one
+GitHub Credential Manager holds, which carries the `repo` scope this needs. The
+token is never printed and goes nowhere but `api.github.com`.
+
+Checking the state by hand, if you ever want to, needs nothing at all:
+
+```powershell
+(Invoke-RestMethod 'https://api.github.com/repos/YOUR-NAME/YOUR-REPO/actions/workflows' -Headers @{'User-Agent'='check'}).workflows.state
+```
 
 Doing this automatically, from a workflow, would be a different matter: GitHub
 took down the most widely used action for it as a terms of service violation,
