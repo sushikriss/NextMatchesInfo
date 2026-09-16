@@ -19,42 +19,88 @@ stay live no matter how old the build is.
 
 ---
 
+## Which account to use
+
+**Do not put this on a work account.** Three things make it a bad fit:
+
+- A **published Pages site is public either way.** Even when the source repo is
+  private, the site itself is served publicly — only GitHub Enterprise Cloud can
+  restrict who opens it. So a private repo does not hide the dashboard; it only
+  hides the code.
+- On the **Free plan, Pages does not work from a private repo at all.** Pages is
+  available in public repositories on Free, and in private repositories only on
+  Pro, Team or Enterprise.
+- Actions are **free and unlimited on public repos**, but a private repo draws
+  from a 2,000 minute monthly quota. Rebuilding every 15 minutes is about 2,900
+  runs a month, which blows past that in a couple of weeks.
+
+A private repo under your **personal** namespace is not visible to your
+organisation's owners — they only see repos owned by the org. But a public repo,
+and your activity on it, does show on your profile.
+
+**The clean answer: use a different account.** A second GitHub account takes two
+minutes and any email address, keeps the repo public so Pages and Actions are
+free, and never touches your work profile. If you already have a personal
+GitHub, use that.
+
+If you would rather not create an account at all, skip to Option B.
+
 ## Option A — GitHub Pages (recommended)
 
 Free, permanent URL, and it refreshes itself every 15 minutes.
 
-1. Create an empty repository on github.com. **Make it public** — scheduled
-   Actions are free without limit on public repos.
+1. Sign in to the account you want this on — **not the work one**.
 
-2. Push this folder to it:
+2. Create an empty repository. Call it whatever you like; the name becomes part
+   of the URL. **Make it public** so Pages and Actions stay free.
+
+3. Push this folder to it:
 
    ```
    git remote add origin https://github.com/YOUR-NAME/YOUR-REPO.git
    git push -u origin main
    ```
 
-3. In the repository: **Settings → Pages → Build and deployment → Source** and
+4. In the repository: **Settings → Pages → Build and deployment → Source** and
    choose **GitHub Actions**.
 
-4. **Actions** tab → *Build and publish dashboard* → **Run workflow**.
+5. **Actions** tab → *Build and publish dashboard* → **Run workflow**.
 
-Your link is then `https://YOUR-NAME.github.io/YOUR-REPO/` — bookmark it, share
-it, open it on your phone.
+Your link is then:
 
-From then on it rebuilds every 15 minutes by itself, and on every push.
+```
+https://YOUR-NAME.github.io/YOUR-REPO/
+```
+
+Bookmark it, share it, open it on your phone. From then on it rebuilds every 15
+minutes by itself, and on every push.
 
 > GitHub pauses scheduled workflows on repositories with no activity for 60
 > days. If the page ever stops updating, open the Actions tab and press
 > **Enable workflow**.
 
-## Option B — Netlify Drop (fastest, no account needed)
+### Commit identity
+
+The history here is authored as `kriss <kriss@users.noreply.github.com>` so no
+real address ends up in a public repo. Once you know the account you are using,
+point it at that account's own no-reply address:
+
+```
+git config user.email "YOUR-ID+YOUR-NAME@users.noreply.github.com"
+```
+
+You will find the exact address under **GitHub → Settings → Emails → Keep my
+email addresses private**.
+
+## Option B — Netlify Drop (no account at all)
 
 Go to **[app.netlify.com/drop](https://app.netlify.com/drop)** and drag the
-`docs` folder onto the page. You get a public URL in a few seconds.
+`docs` folder onto the page. You get a public URL in a few seconds, with no
+sign-up, no repository and no connection to any account of yours.
 
-This publishes the snapshot as it is now and does not refresh itself, so it is
-best for showing someone quickly. Re-run `python build.py` and drop the folder
-again to update it.
+The catch: it publishes the snapshot as it stands and does not refresh itself.
+Re-run `python build.py` and drag the folder again whenever you want it current.
+Good for sending a friend a link today; Option A is better for a bookmark.
 
 ---
 
