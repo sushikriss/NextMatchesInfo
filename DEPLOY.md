@@ -116,11 +116,37 @@ is free and unlimited. Nothing here comes close to a limit:
 not need to be on, which is the whole reason the page is pre-rendered rather
 than fetching ESPN from the browser.
 
-The one thing that can stop it: GitHub **disables a scheduled workflow after 60
-days with no repository activity** on a public repo. It emails you first, the
-Actions tab has a one-click re-enable, and any push resets the clock. The
-schedule also avoids firing on the hour, which GitHub names as its peak load
+The schedule avoids firing on the hour, which GitHub names as its peak load
 window for delayed runs.
+
+### Keeping it from being switched off
+
+The one thing that stops it: GitHub **disables a scheduled workflow after 60
+days with no push to the repository** on a public repo. Two details make this
+worse than it sounds:
+
+- The docs do not promise a warning, and users report the runs simply stop.
+- It disables the **whole workflow**, not just the schedule — so `push` and the
+  manual *Run workflow* button stop working too, and it cannot revive itself.
+
+Two things cover this. First, past eight hours without a rebuild the page says
+outright that it has stopped and links to the Enable workflow button, so a
+frozen snapshot can never pass for live data.
+
+Second, **`reset-matches.bat`** — run it every month or two. It pushes one empty
+commit, which resets the 60-day clock, and since the workflow also runs on every
+push it refreshes the page immediately. An empty commit leaves no junk in the
+history. A copy lives here in the project; the one to double-click is on the
+Desktop. If you move the project folder, edit the `REPO` line at its top.
+
+Note it only *prevents* the problem. Once GitHub has switched the workflow off,
+no push can restart it — that needs the button on the Actions tab.
+
+Doing this automatically, from a workflow, would be a different matter: GitHub
+took down the most widely used action for it as a terms of service violation,
+since generating activity for no reason other than resetting that timer is
+"activity unrelated to the production, testing, deployment, or publication of
+the software project". Running it yourself now and then is just using git.
 
 ### Who can find the site?
 
